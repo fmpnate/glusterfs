@@ -1653,7 +1653,7 @@ __ec_heal_data_prepare (call_frame_t *frame, ec_t *ec, fd_t *fd,
                 }
 
                 if (healed_sinks[i]) {
-                        if (replies[i].stat.ia_size)
+                        if ((replies[i].stat.ia_size) && (replies[i].stat.ia_size != source_size))
                                 trim[i] = 1;
                 }
         }
