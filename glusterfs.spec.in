@@ -1211,7 +1211,7 @@ exit 0
 %{_libexecdir}/glusterfs/glusterfind
 %{_bindir}/glusterfind
 %{_libexecdir}/glusterfs/peer_add_secret_pub
-%{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py
+%{_sharedstatedir}/glusterd/hooks/1/delete/post/S57glusterfind-delete-post.py*
 
 %if ( 0%{?_with_firewalld:1} )
 /usr/lib/firewalld/services/glusterfs.xml
