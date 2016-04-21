@@ -1767,7 +1767,6 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
     ec_inode_t *ctx;
     dict_t * dict;
     int32_t err = -ENOMEM;
-    int32_t minimum = EC_MINIMUM_ALL;
 
     fop = link->fop;
 
@@ -1813,7 +1812,6 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
         if (err != 0) {
             goto out;
         }
-        minimum = EC_MINIMUM_MIN;
     }
 
     /* If config information is not know, we request it now. */
@@ -1828,11 +1826,11 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version,
 
     if (link->lock->fd == NULL) {
             ec_xattrop(fop->frame, fop->xl, lock->good_mask | fop->good,
-                       minimum, ec_update_size_version_done, link,
+                       EC_MINIMUM_MIN, ec_update_size_version_done, link,
                        &link->lock->loc, GF_XATTROP_ADD_ARRAY64, dict, NULL);
     } else {
             ec_fxattrop(fop->frame, fop->xl, lock->good_mask | fop->good,
-                        minimum, ec_update_size_version_done, link,
+                        EC_MINIMUM_MIN, ec_update_size_version_done, link,
                         link->lock->fd, GF_XATTROP_ADD_ARRAY64, dict, NULL);
     }
 
