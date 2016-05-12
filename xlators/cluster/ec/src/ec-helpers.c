@@ -832,3 +832,19 @@ ec_is_metadata_fop (int32_t lock_kind, glusterfs_fop_t fop)
         }
         return _gf_false;
 }*/
+
+gf_boolean_t
+ec_is_dispatch_all_fop (glusterfs_fop_t fop)
+{
+        switch (fop) {
+        case GF_FOP_READLINK:
+        case GF_FOP_READ:
+        case GF_FOP_READDIR:
+        case GF_FOP_LK:
+        case GF_FOP_INODELK:
+        case GF_FOP_ENTRYLK:
+                return _gf_false;
+        default:
+                return _gf_true;
+        }
+}

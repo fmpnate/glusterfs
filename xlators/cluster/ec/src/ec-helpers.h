@@ -69,4 +69,7 @@ ec_launch_replace_heal (ec_t *ec);
 gf_boolean_t
 ec_is_metadata_fop (glusterfs_fop_t fop);
 */
+gf_boolean_t
+ec_is_dispatch_all_fop (glusterfs_fop_t fop);
+
 #endif /* __EC_HELPERS_H__ */

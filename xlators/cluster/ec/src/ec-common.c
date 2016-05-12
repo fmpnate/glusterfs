@@ -1875,8 +1875,8 @@ ec_update_info(ec_lock_link_t *link)
     /*Dirty is not combined so just reset it right here*/
     memset(ctx->dirty, 0, sizeof(ctx->dirty));
 
-    if ((version[0] != 0) || (version[1] != 0) ||
-        (dirty[0] != 0) || (dirty[1] != 0)) {
+    if (ec_is_dispatch_all_fop(link->fop->id) && ((version[0] != 0) ||
+        (version[1] != 0) || (dirty[0] != 0) || (dirty[1] != 0))) {
         ec_update_size_version(link, version, size, dirty);
 
         return _gf_true;
