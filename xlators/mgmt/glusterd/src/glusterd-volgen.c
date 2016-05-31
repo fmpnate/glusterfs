@@ -2246,6 +2246,31 @@ out:
         return ret;
 }
 
+static int
+brick_graph_add_write_behind (volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                         dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+        int             ret = -1;
+        xlator_t        *xl = NULL;
+
+        if (!graph || !volinfo || !set_dict)
+                goto out;
+
+        xl = volgen_graph_add (graph, "performance/write-behind", volinfo->volname);
+        if (!xl)
+                goto out;
+
+        ret = xlator_set_option (xl, "cache-size", "1GB");
+        if (ret)
+                goto out;
+        ret = xlator_set_option (xl, "flush-behind", "on");
+        if (ret)
+                goto out;
+
+out:
+        return ret;
+}
+
 
 /* The order of xlator definition here determines
  * the topology of the brick graph */
@@ -2259,6 +2284,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
         {brick_graph_add_index, "index"},
         {brick_graph_add_barrier, NULL},
         {brick_graph_add_marker, "marker"},
+        {brick_graph_add_write_behind, "write_behind"},
         {brick_graph_add_iot, "io-threads"},
         {brick_graph_add_upcall, "upcall"},
         {brick_graph_add_pump, NULL},
