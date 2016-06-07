@@ -815,6 +815,8 @@ out:
                 glfd = NULL;
         } else if (glfd) {
                 glfd->state = GLFD_OPEN;
+                //close glfd for unlink problem
+                glfs_close(glfd);
         }
 
         glfs_subvol_done (fs, subvol);
