@@ -118,9 +118,6 @@ fd_t *
 fd_ref (fd_t *fd);
 
 
-fd_t *
-__fd_unref (fd_t *fd);
-
 void
 fd_unref (fd_t *fd);
 
