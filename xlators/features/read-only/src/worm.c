@@ -12,11 +12,15 @@
 #include "config.h"
 #endif
 
+#include <time.h>
 #include "xlator.h"
 #include "defaults.h"
 #include "read-only-common.h"
 #include "read-only-mem-types.h"
 #include "read-only.h"
+
+gf_lock_t stat_lock;
+int32_t can_op = 0;
 
 int32_t
 mem_acct_init (xlator_t *this)
@@ -31,6 +35,33 @@ mem_acct_init (xlator_t *this)
         return ret;
 }
 
+
+int32_t
+worm_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, struct iatt *buf,
+                  dict_t *xdata)
+{
+        int32_t ret = 0;
+        can_op = 1; 
+        struct timespec c_ts = {0, 0};
+
+        ret = clock_gettime (CLOCK_REALTIME, &c_ts);
+        if (ret != 0)
+        {
+            can_op = 0;
+        }
+        else if(!buf)
+        {
+            can_op = 0;
+        }
+        else if( (buf->ia_mtime > 86400) && (c_ts.tv_sec - buf->ia_mtime >= 10) )
+        {
+            can_op = 0;
+        }
+
+        return can_op;
+}
+
 static int32_t
 worm_open_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                int32_t op_errno, fd_t *fd, dict_t *xdata)
@@ -43,16 +74,243 @@ int32_t
 worm_open (call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            fd_t *fd, dict_t *xdata)
 {
+        call_frame_t *local_frame;
+
         if (is_readonly_or_worm_enabled (this) &&
             ((((flags & O_ACCMODE) == O_WRONLY) ||
               ((flags & O_ACCMODE) == O_RDWR)) &&
-              !(flags & O_APPEND))) {
+              !(flags & O_APPEND)))
+        {
+            local_frame = copy_frame(frame);
+            LOCK(&stat_lock);
+            STACK_WIND (local_frame, worm_stat_cbk,
+                        FIRST_CHILD(this),
+                        FIRST_CHILD(this)->fops->stat, loc, xdata);
+
+            FRAME_DESTROY(local_frame);
+
+            if (can_op == 0)
+            {
+                UNLOCK(&stat_lock);
                 STACK_UNWIND_STRICT (open, frame, -1, EROFS, NULL, NULL);
                 return 0;
+            }
+            UNLOCK(&stat_lock);
         }
 
         STACK_WIND (frame, worm_open_cbk, FIRST_CHILD(this),
                     FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
+        return 0;
+}
+
+int32_t
+worm_truncate (call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset, dict_t *xdata)
+{
+
+        call_frame_t *local_frame;
+
+        if (is_readonly_or_worm_enabled (this))
+        {
+                local_frame = copy_frame(frame);
+                LOCK(&stat_lock);
+                STACK_WIND (local_frame, worm_stat_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->stat, loc, xdata);
+
+                FRAME_DESTROY(local_frame);
+                
+                if (can_op == 0)
+                {
+                    UNLOCK(&stat_lock);
+                    STACK_UNWIND_STRICT (truncate, frame, -1, EROFS, NULL, NULL,
+                                         xdata);
+                    return 0;
+                }
+                UNLOCK(&stat_lock);
+        }
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                        FIRST_CHILD(this)->fops->truncate, loc, offset,
+                        xdata);
+
+    return 0;
+}
+
+static int
+_check_key_is_zero_filled (dict_t *d, char *k, data_t *v,
+                           void *tmp)
+{
+        if (mem_0filled ((const char *)v->data, v->len)) {
+                /* -1 means, no more iterations, treat as 'break' */
+                return -1;
+        }
+        return 0;
+}
+
+int32_t
+worm_xattrop (call_frame_t *frame, xlator_t *this, loc_t *loc,
+            gf_xattrop_flags_t flags, dict_t *dict, dict_t *xdata)
+{
+
+        gf_boolean_t allzero = _gf_false;
+        int     ret = 0;
+
+        ret = dict_foreach (dict, _check_key_is_zero_filled, NULL);
+        if (ret == 0)
+                allzero = _gf_true;
+
+        call_frame_t *local_frame;
+
+        if (is_readonly_or_worm_enabled (this))
+        {
+                local_frame = copy_frame(frame);
+                LOCK(&stat_lock);
+                STACK_WIND (local_frame, worm_stat_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->stat, loc, xdata);
+
+                FRAME_DESTROY(local_frame);
+
+                if(can_op == 0)
+                {
+                    UNLOCK(&stat_lock);
+                    STACK_UNWIND_STRICT (xattrop, frame, -1, EROFS, NULL, xdata);
+                    return 0;
+                }
+                UNLOCK(&stat_lock);
+        }
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->xattrop,
+                         loc, flags, dict, xdata);
+        return 0;
+}
+
+int32_t
+worm_removexattr (call_frame_t *frame, xlator_t *this, loc_t *loc,
+                const char *name, dict_t *xdata)
+{
+
+        call_frame_t *local_frame;
+
+        if (is_readonly_or_worm_enabled (this))
+        {
+                local_frame = copy_frame(frame);
+                LOCK(&stat_lock);
+                STACK_WIND (local_frame, worm_stat_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->stat, loc, xdata);
+
+                FRAME_DESTROY(local_frame);
+
+                if(can_op == 0)
+                {
+                    UNLOCK(&stat_lock);
+                    STACK_UNWIND_STRICT (removexattr, frame, -1, EROFS, xdata);
+                    return 0;
+                }
+                UNLOCK(&stat_lock);
+        }
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->removexattr, loc,
+                         name, xdata);
+
+        return 0;
+}
+
+int32_t
+worm_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
+           dict_t *xdata)
+{
+        call_frame_t *local_frame;
+
+        if (is_readonly_or_worm_enabled (this))
+        {
+                local_frame = copy_frame(frame);
+                LOCK(&stat_lock);
+                STACK_WIND (local_frame, worm_stat_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->stat, loc, xdata);
+
+                FRAME_DESTROY(local_frame);
+
+                if(can_op == 0)
+                {
+                    UNLOCK(&stat_lock);
+                    STACK_UNWIND_STRICT (unlink, frame, -1, EROFS, NULL, NULL,
+                                         xdata);
+                    return 0;
+                }
+                UNLOCK(&stat_lock);
+        }
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->unlink, loc, xflag,
+                         xdata);
+
+        return 0;
+}
+
+int32_t
+worm_fsyncdir (call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
+             dict_t *xdata)
+{
+        call_frame_t *local_frame;
+
+        if (is_readonly_or_worm_enabled (this))
+        {
+                local_frame = copy_frame(frame);
+                LOCK(&stat_lock);
+                STACK_WIND (local_frame, worm_stat_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fstat, fd, xdata);
+
+                FRAME_DESTROY(local_frame);
+
+                if(can_op == 0)
+                {
+                    UNLOCK(&stat_lock);
+                    STACK_UNWIND_STRICT (fsyncdir, frame, -1, EROFS, xdata);
+                    return 0;
+                }
+                UNLOCK(&stat_lock);
+        }
+
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->fsyncdir, fd, flags,
+                         xdata);
+
+    return 0;
+}
+
+int32_t
+worm_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
+           dict_t *xdata)
+{
+        call_frame_t *local_frame;
+
+        if (is_readonly_or_worm_enabled (this))
+        {
+                local_frame = copy_frame(frame);
+                LOCK(&stat_lock);
+                STACK_WIND (local_frame, worm_stat_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->stat, oldloc, xdata);
+
+                FRAME_DESTROY(local_frame);
+
+                if(can_op == 0)
+                {
+                    UNLOCK(&stat_lock);
+                    STACK_UNWIND_STRICT (rename, frame, -1, EROFS, NULL, NULL, NULL,
+                                         NULL, NULL, xdata);
+                    return 0;
+                }
+                UNLOCK(&stat_lock);
+        }
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->rename, oldloc,
+                         newloc, xdata);
+
         return 0;
 }
 
@@ -78,6 +336,8 @@ init (xlator_t *this)
                 goto out;
 
         GF_OPTION_INIT ("worm", priv->readonly_or_worm_enabled, bool, out);
+
+        LOCK_INIT(&stat_lock);
 
         this->private = priv;
         ret = 0;
@@ -115,6 +375,7 @@ fini (xlator_t *this)
 
         this->private = NULL;
         GF_FREE (priv);
+        LOCK_DESTROY(&stat_lock);
 
         return;
 }
@@ -124,11 +385,11 @@ struct xlator_fops fops = {
 
         .unlink      = ro_unlink,
         .rmdir       = ro_rmdir,
-        .rename      = ro_rename,
-        .truncate    = ro_truncate,
-        .removexattr = ro_removexattr,
-        .fsyncdir    = ro_fsyncdir,
-        .xattrop     = ro_xattrop,
+        .rename      = worm_rename,
+        .truncate    = worm_truncate,
+        .removexattr = worm_removexattr,
+        .fsyncdir    = worm_fsyncdir,
+        .xattrop     = worm_xattrop,
         .inodelk     = ro_inodelk,
         .finodelk    = ro_finodelk,
         .entrylk     = ro_entrylk,

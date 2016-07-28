@@ -584,6 +584,7 @@ posix_istat (xlator_t *this, uuid_t gfid, const char *basename,
 {
         char        *real_path = NULL;
         struct stat  lstatbuf = {0, };
+        
         struct iatt  stbuf = {0, };
         int          ret = 0;
         struct posix_private *priv = NULL;
