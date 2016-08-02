@@ -1638,6 +1638,14 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
 
     ec_lock_update_good(lock, fop);
 
+    if ((fop->error == 0) && (cbk != NULL) && (cbk->op_ret >= 0)) {
+        if(link->update[0] || link->update[1]){
+            if(ec_fop_needs_heal(link->fop)){
+                lock->release = _gf_true;
+                list_splice_init(&lock->waiting,&lock->frozen);
+            }
+        }
+    }
     lock->exclusive -= (fop->flags & EC_FLAG_LOCK_SHARED) == 0;
     if (list_empty(&lock->owners)) {
         ec_lock_wake_shared(lock, &list);
