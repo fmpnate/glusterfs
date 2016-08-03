@@ -768,7 +768,7 @@ pub_glfs_h_creat (struct glfs *fs, struct glfs_object *parent, const char *path,
         fd->flags = flags;
 
         /* fop/op */
-        ret = syncop_create (subvol, &loc, flags, mode, fd, &iatt,
+        ret = syncop_create (subvol, &loc, flags, S_IFREG | mode, fd, &iatt,
                              xattr_req, NULL);
         DECODE_SYNCOP_ERR (ret);
 
@@ -869,7 +869,8 @@ pub_glfs_h_mkdir (struct glfs *fs, struct glfs_object *parent, const char *path,
         GLFS_LOC_FILL_PINODE (inode, loc, ret, errno, out, path);
 
         /* fop/op */
-        ret = syncop_mkdir (subvol, &loc, mode, &iatt, xattr_req, NULL);
+        ret = syncop_mkdir (subvol, &loc, S_IFDIR | mode, &iatt, xattr_req,
+                            NULL);
         DECODE_SYNCOP_ERR (ret);
 
         /* populate out args */

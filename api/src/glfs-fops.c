@@ -518,7 +518,7 @@ retry:
 		ret = syncop_open (subvol, &loc, flags, glfd->fd, NULL, NULL);
                 DECODE_SYNCOP_ERR (ret);
 	} else {
-		ret = syncop_create (subvol, &loc, flags, mode, glfd->fd,
+		ret = syncop_create (subvol, &loc, flags, S_IFREG | mode, glfd->fd,
 				     &iatt, xattr_req, NULL);
                 DECODE_SYNCOP_ERR (ret);
 	}
@@ -1933,7 +1933,7 @@ retry:
 		goto out;
 	}
 
-	ret = syncop_mkdir (subvol, &loc, mode, &iatt, xattr_req, NULL);
+	ret = syncop_mkdir (subvol, &loc, S_IFDIR | mode, &iatt, xattr_req, NULL);
         DECODE_SYNCOP_ERR (ret);
 
 	ESTALE_RETRY (ret, errno, reval, &loc, retry);
