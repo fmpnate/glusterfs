@@ -44,9 +44,13 @@ worm_stat_cbk (call_frame_t *frame, void *cookie, xlator_t *this,
         int32_t ret = 0;
         can_op = 1; 
         struct timespec c_ts = {0, 0};
-
         ret = clock_gettime (CLOCK_REALTIME, &c_ts);
-        if (ret != 0)
+
+        if (op_errno != 0)
+        {
+            can_op = 0;
+        }
+        else if (ret != 0)
         {
             can_op = 0;
         }
