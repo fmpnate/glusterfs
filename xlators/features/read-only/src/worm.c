@@ -314,6 +314,35 @@ worm_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         return 0;
 }
 
+int
+worm_rmdir (call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
+          dict_t *xdata)
+{
+        call_frame_t *local_frame;
+        if (is_readonly_or_worm_enabled (this))
+        {
+                local_frame = copy_frame(frame);
+                LOCK(&stat_lock);
+                STACK_WIND (local_frame, worm_stat_cbk,
+                            FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->stat, loc, xdata);
+                FRAME_DESTROY(local_frame);
+                if(can_op == 0)
+                {
+                    UNLOCK(&stat_lock);
+                    STACK_UNWIND_STRICT (rmdir, frame, -1, EROFS, NULL, NULL,
+                                         xdata);
+                    return 0;
+                }
+                UNLOCK(&stat_lock);
+        }
+        STACK_WIND_TAIL (frame, FIRST_CHILD (this),
+                         FIRST_CHILD(this)->fops->rmdir, loc, flags,
+                         xdata);
+
+        return 0;
+}
+
 int32_t
 init (xlator_t *this)
 {
@@ -383,8 +412,8 @@ fini (xlator_t *this)
 struct xlator_fops fops = {
         .open        = worm_open,
 
-        .unlink      = ro_unlink,
-        .rmdir       = ro_rmdir,
+        .unlink      = worm_unlink,
+        .rmdir       = worm_rmdir,
         .rename      = worm_rename,
         .truncate    = worm_truncate,
         .removexattr = worm_removexattr,
