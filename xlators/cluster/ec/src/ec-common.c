@@ -1622,30 +1622,30 @@ ec_lock_next_owner(ec_lock_link_t *link, ec_cbk_data_t *cbk,
     lock->release |= release;
 
     if ((fop->error == 0) && (cbk != NULL) && (cbk->op_ret >= 0)) {
-        if (link->update[0]) {
-            ctx->post_version[0]++;
-            if (ec->node_mask & ~fop->good) {
-                ctx->dirty[0]++;
+        if (link->update[0] || link->update[1]) {
+            if (ec->node_mask != ec->xl_up || lock->healing || 
+                ec_fop_needs_heal(link->fop)) {
+                lock->release = _gf_true;
+                list_splice_init(&lock->waiting, &lock->frozen);
             }
-        }
-        if (link->update[1]) {
-            ctx->post_version[1]++;
-            if (ec->node_mask & ~fop->good) {
-                ctx->dirty[1]++;
+
+            if (link->update[0]) {
+                ctx->post_version[0]++;
+                if (ec->node_mask & ~fop->good) {
+                    ctx->dirty[0]++;
+                }
+            }
+
+            if (link->update[1]) {
+                ctx->post_version[1]++;
+                if (ec->node_mask & ~fop->good) {
+                    ctx->dirty[1]++;
+                }
             }
         }
     }
 
     ec_lock_update_good(lock, fop);
-
-    if ((fop->error == 0) && (cbk != NULL) && (cbk->op_ret >= 0)) {
-        if(link->update[0] || link->update[1]){
-            if(ec_fop_needs_heal(link->fop) || lock->healing){
-                lock->release = _gf_true;
-                list_splice_init(&lock->waiting, &lock->frozen);
-            }
-        }
-    }
 
     lock->exclusive -= (fop->flags & EC_FLAG_LOCK_SHARED) == 0;
     if (list_empty(&lock->owners)) {
