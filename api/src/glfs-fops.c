@@ -3132,8 +3132,6 @@ glfs_getxattr_process (void *value, size_t size, dict_t *xattr,
 
 	memcpy (value, data->data, ret);
 out:
-	if (xattr)
-		dict_unref (xattr);
 	return ret;
 }
 
@@ -3193,6 +3191,9 @@ retry:
 	ret = glfs_getxattr_process (value, size, xattr, name);
 out:
 	loc_wipe (&loc);
+
+        if (xattr)
+                dict_unref (xattr);
 
 	glfs_subvol_done (fs, subvol);
 
@@ -3274,6 +3275,8 @@ out:
 		fd_unref (fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (xattr)
+                dict_unref (xattr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -3307,9 +3310,6 @@ glfs_listxattr_process (void *value, size_t size, dict_t *xattr)
 	}
 
 out:
-        if (xattr)
-                dict_unref (xattr);
-
 	return ret;
 }
 
@@ -3357,6 +3357,9 @@ retry:
 	ret = glfs_listxattr_process (value, size, xattr);
 out:
 	loc_wipe (&loc);
+
+        if (xattr)
+                dict_unref (xattr);
 
 	glfs_subvol_done (fs, subvol);
 
@@ -3423,6 +3426,8 @@ out:
 		fd_unref (fd);
         if (glfd)
                 GF_REF_PUT (glfd);
+        if (xattr)
+                dict_unref (xattr);
 
 	glfs_subvol_done (glfd->fs, subvol);
 
@@ -4274,8 +4279,10 @@ priv_glfs_process_upcall_event (struct glfs *fs, void *data)
 
         ret = 0;
 out:
-        if (ret && u_list)
+        if (ret && u_list) {
+                GF_FREE (u_list->upcall_data.data);
                 GF_FREE(u_list);
+        }
         return;
 }
 

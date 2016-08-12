@@ -1844,6 +1844,10 @@ glfs_h_find_handle (struct glfs *fs, unsigned char *handle, int len)
         gf_uuid_copy (object->gfid, object->inode->gfid);
 
 out:
+        /* inode_find takes a reference. Unref it. */
+        if (newinode)
+                inode_unref (newinode);
+
         glfs_subvol_done (fs, subvol);
 
         __GLFS_EXIT_FS;
@@ -2034,6 +2038,7 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
                                           &fs->upcall_list,
                                           upcall_list) {
                         found = 1;
+                        list_del_init (&u_list->upcall_list);
                         break;
                 }
         }
@@ -2070,7 +2075,6 @@ pub_glfs_h_poll_upcall (struct glfs *fs, struct callback_arg *up_arg)
 
                 up_arg->reason = reason;
 
-                list_del_init (&u_list->upcall_list);
                 GF_FREE (u_list->upcall_data.data);
                 GF_FREE (u_list);
         }
