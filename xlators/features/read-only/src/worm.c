@@ -298,7 +298,7 @@ worm_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
                 LOCK(&stat_lock);
                 STACK_WIND (local_frame, worm_stat_cbk,
                             FIRST_CHILD(this),
-                            FIRST_CHILD(this)->fops->stat, newloc, xdata);
+                            FIRST_CHILD(this)->fops->stat, oldloc, xdata);
 
                 FRAME_DESTROY(local_frame);
 
