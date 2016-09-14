@@ -231,6 +231,8 @@ worm_unlink (call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         {
                 local_frame = copy_frame(frame);
                 LOCK(&stat_lock);
+                if (! *loc->gfid)
+                    gf_uuid_copy (loc->gfid, loc->inode->gfid);
                 STACK_WIND (local_frame, worm_stat_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->stat, loc, xdata);
@@ -296,6 +298,8 @@ worm_rename (call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         {
                 local_frame = copy_frame(frame);
                 LOCK(&stat_lock);
+                if (! *oldloc->gfid)
+                    gf_uuid_copy (oldloc->gfid, oldloc->inode->gfid);
                 STACK_WIND (local_frame, worm_stat_cbk,
                             FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->stat, oldloc, xdata);
