@@ -820,6 +820,9 @@ dht_fsync_cbk (call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 goto out;
         }
 
+        if ( !prebuf || !postbuf )
+            goto out;
+
         local->op_ret = op_ret;
         inode = local->fd->inode;
 
